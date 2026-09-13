@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<title>Lua Locker & Obfuscator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff; --accent2:#3fb950;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    background:var(--bg); color:var(--text); min-height:100vh;
+  }
+  header{
+    padding:18px 24px; border-bottom:1px solid var(--border);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  header h1{ font-size:18px; margin:0; }
+  header h1 span{ color:var(--accent); }
+  #userBox{ font-size:14px; color:var(--muted); display:flex; gap:10px; align-items:center;}
+  button{
+    cursor:pointer; border:none; border-radius:6px; padding:8px 14px;
+    font-size:14px; font-weight:600;
+  }
+  .btn-primary{ background:var(--accent); color:#04121f; }
+  .btn-secondary{ background:#21262d; color:var(--text); border:1px solid var(--border); }
+  .btn-danger{ background:#f85149; color:#fff; }
+  main{ max-width:900px; margin:0 auto; padding:30px 20px; }
+
+  /* Auth screen */
+  #authScreen .box{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:26px; max-width:380px; margin:60px auto;
+  }
+  #authScreen h2{ margin-top:0; }
+  #authScreen input{
+    width:100%; padding:10px; margin:6px 0 14px; border-radius:6px;
+    border:1px solid var(--border); background:#0d1117; color:var(--text);
+  }
+  #authScreen .switch{ font-size:13px; color:var(--muted); margin-top:10px; }
+  #authScreen .switch a{ color:var(--accent); cursor:pointer; }
+  #authError{ color:#f85149; font-size:13px; min-height:18px; }
+
+  /* App screen */
+  #appScreen{ display:none; }
+  textarea{
+    width:100%; min-height:260px; background:#0d1117; color:#c9d1d9;
+    border:1px solid var(--border); border-radius:8px; padding:12px;
+    font-family:Consolas,Menlo,monospace; font-size:13px; resize:vertical;
+  }
+  .row{ display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; align-items:center; }
+  input#titleInput{
+    flex:1; min-width:180px; padding:9px; border-radius:6px;
+    border:1px solid var(--border); background:#0d1117; color:var(--text);
+  }
+  .result{
+    margin-top:20px; background:var(--panel); border:1px solid var(--border);
+    border-radius:8px; padding:16px; display:none;
+  }
+  .result label{ font-size:12px; color:var(--muted); display:block; margin-bottom:4px;}
+  .copyRow{ display:flex; gap:8px; margin-bottom:14px; }
+  .copyRow input{
+    flex:1; padding:9px; border-radius:6px; border:1px solid var(--border);
+    background:#0d1117; color:var(--accent2); font-family:monospace; font-size:13px;
+  }
+  #scriptList{ margin-top:30px; }
+  #scriptList table{ width:100%; border-collapse:collapse; font-size:13px; }
+  #scriptList th, #scriptList td{
+    text-align:left; padding:8px; border-bottom:1px solid var(--border);
+  }
+  #scriptList th{ color:var(--muted); font-weight:600; }
+  .hint{ color:var(--muted); font-size:12px; margin-top:6px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Lua <span>Locker</span> & Obfuscator</h1>
+  <div id="userBox"></div>
+</header>
+
+<main>
+
+  <!-- ================= AUTH SCREEN ================= -->
+  <div id="authScreen">
+    <div class="box">
+      <h2 id="authTitle">Đăng nhập</h2>
+      <input id="authUsername" placeholder="Tài khoản" autocomplete="username" />
+      <input id="authPassword" type="password" placeholder="Mật khẩu" autocomplete="current-password" />
+      <div id="authError"></div>
+      <button class="btn-primary" id="authSubmitBtn" style="width:100%">Đăng nhập</button>
+      <div class="switch">
+        <span id="switchText">Chưa có tài khoản?</span>
+        <a id="switchLink">Đăng ký ngay</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= APP SCREEN ================= -->
+  <div id="appScreen">
+    <h3>Dán code Lua cần khóa</h3>
+    <div class="row">
+      <input id="titleInput" placeholder="Tên script (tuỳ chọn)" />
+    </div>
+    <textarea id="luaInput" placeholder="-- Dán code Lua của bạn vào đây
+print('Hello from Roblox')"></textarea>
+    <div class="row">
+      <button class="btn-primary" id="lockBtn">🔒 Khóa & Tạo Link RAW</button>
+      <span class="hint" id="lockStatus"></span>
+    </div>
+
+    <div class="result" id="resultBox">
+      <label>Link RAW (text/plain)</label>
+      <div class="copyRow">
+        <input id="rawUrlOutput" readonly />
+        <button class="btn-secondary" data-copy="rawUrlOutput">Copy</button>
+      </div>
+
+      <label>Lệnh chạy trong Executor (loadstring)</label>
+      <div class="copyRow">
+        <input id="loadstringOutput" readonly />
+        <button class="btn-secondary" data-copy="loadstringOutput">Copy</button>
+      </div>
+      <div class="hint">Dán lệnh trên vào Roblox Executor (Synapse, Script-Ware, Krnl, ...) và Execute.</div>
+    </div>
+
+    <div id="scriptList">
+      <h3>Script của bạn</h3>
+      <table>
+        <thead><tr><th>Tên</th><th>ID</th><th>Lượt xem</th><th>Ngày tạo</th><th></th></tr></thead>
+        <tbody id="scriptTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const API = ""; // cùng domain với frontend
+
+// ---------------------------------------------------------------------
+// State & helpers
+// ---------------------------------------------------------------------
+let mode = "login"; // hoặc "register"
+
+function getToken(){ return localStorage.getItem("lua_locker_token"); }
+function setToken(t){ localStorage.setItem("lua_locker_token", t); }
+function clearToken(){ localStorage.removeItem("lua_locker_token"); }
+function getUser(){
+  try { return JSON.parse(localStorage.getItem("lua_locker_user") || "null"); }
+  catch(e){ return null; }
+}
+function setUser(u){ localStorage.setItem("lua_locker_user", JSON.stringify(u)); }
+
+async function api(path, options = {}) {
+  const headers = options.headers || {};
+  headers["Content-Type"] = "application/json";
+  const token = getToken();
+  if (token) headers["Authorization"] = "Bearer " + token;
+
+  const res = await fetch(API + path, { ...options, headers });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Có lỗi xảy ra");
+  return data;
+}
+
+// ---------------------------------------------------------------------
+// Auth screen logic
+// ---------------------------------------------------------------------
+const authTitle = document.getElementById("authTitle");
+const authSubmitBtn = document.getElementById("authSubmitBtn");
+const switchText = document.getElementById("switchText");
+const switchLink = document.getElementById("switchLink");
+const authError = document.getElementById("authError");
+
+function renderAuthMode(){
+  if (mode === "login") {
+    authTitle.textContent = "Đăng nhập";
+    authSubmitBtn.textContent = "Đăng nhập";
+    switchText.textContent = "Chưa có tài khoản?";
+    switchLink.textContent = "Đăng ký ngay";
+  } else {
+    authTitle.textContent = "Đăng ký";
+    authSubmitBtn.textContent = "Đăng ký";
+    switchText.textContent = "Đã có tài khoản?";
+    switchLink.textContent = "Đăng nhập";
+  }
+  authError.textContent = "";
+}
+
+switchLink.onclick = () => {
+  mode = mode === "login" ? "register" : "login";
+  renderAuthMode();
+};
+
+authSubmitBtn.onclick = async () => {
+  const username = document.getElementById("authUsername").value.trim();
+  const password = document.getElementById("authPassword").value;
+  authError.textContent = "";
+
+  if (!username || !password) {
+    authError.textContent = "Vui lòng nhập đầy đủ tài khoản và mật khẩu";
+    return;
+  }
+
+  try {
+    const endpoint = mode === "login" ? "/api/login" : "/api/register";
+    const data = await api(endpoint, {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    });
+    // Lưu phiên đăng nhập vào localStorage để duy trì session
+    setToken(data.token);
+    setUser(data.user);
+    showApp();
+  } catch (err) {
+    authError.textContent = err.message;
+  }
+};
+
+// ---------------------------------------------------------------------
+// App screen logic
+// ---------------------------------------------------------------------
+function showApp(){
+  document.getElementById("authScreen").style.display = "none";
+  document.getElementById("appScreen").style.display = "block";
+
+  const user = getUser();
+  document.getElementById("userBox").innerHTML =
+    `Xin chào, <b>${user?.username || ""}</b> &nbsp; <button class="btn-danger" id="logoutBtn">Đăng xuất</button>`;
+  document.getElementById("logoutBtn").onclick = logout;
+
+  loadScripts();
+}
+
+function showAuth(){
+  document.getElementById("authScreen").style.display = "block";
+  document.getElementById("appScreen").style.display = "none";
+  document.getElementById("userBox").innerHTML = "";
+}
+
+function logout(){
+  clearToken();
+  localStorage.removeItem("lua_locker_user");
+  showAuth();
+}
+
+document.getElementById("lockBtn").onclick = async () => {
+  const code = document.getElementById("luaInput").value;
+  const title = document.getElementById("titleInput").value.trim();
+  const statusEl = document.getElementById("lockStatus");
+
+  if (!code.trim()) {
+    statusEl.textContent = "Vui lòng nhập code Lua trước.";
+    return;
+  }
+
+  statusEl.textContent = "Đang khóa code...";
+  try {
+    const data = await api("/api/lock", {
+      method: "POST",
+      body: JSON.stringify({ code, title }),
+    });
+
+    document.getElementById("rawUrlOutput").value = data.rawUrl;
+    document.getElementById("loadstringOutput").value = data.loadstringCmd;
+    document.getElementById("resultBox").style.display = "block";
+    statusEl.textContent = "Đã tạo thành công!";
+    loadScripts();
+  } catch (err) {
+    statusEl.textContent = "Lỗi: " + err.message;
+  }
+};
+
+document.querySelectorAll("[data-copy]").forEach((btn) => {
+  btn.onclick = () => {
+    const input = document.getElementById(btn.dataset.copy);
+    input.select();
+    navigator.clipboard.writeText(input.value);
+    btn.textContent = "Đã copy!";
+    setTimeout(() => (btn.textContent = "Copy"), 1200);
+  };
+});
+
+async function loadScripts(){
+  try {
+    const data = await api("/api/scripts");
+    const tbody = document.getElementById("scriptTableBody");
+    tbody.innerHTML = "";
+    (data.scripts || []).forEach((s) => {
+      const rawUrl = `${location.origin}/raw/${s.id}`;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${s.title || "Untitled"}</td>
+        <td>${s.id}</td>
+        <td>${s.views || 0}</td>
+        <td>${new Date(s.created_at).toLocaleString()}</td>
+        <td><button class="btn-secondary" onclick="navigator.clipboard.writeText('loadstring(game:HttpGet(\\'${rawUrl}\\'))()'); this.textContent='Đã copy!'">Copy Loadstring</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// ---------------------------------------------------------------------
+// Khởi động: kiểm tra session đã lưu trong localStorage
+// ---------------------------------------------------------------------
+(async function init(){
+  renderAuthMode();
+  const token = getToken();
+  if (!token) { showAuth(); return; }
+
+  try {
+    await api("/api/me"); // xác thực token còn hợp lệ
+    showApp();
+  } catch (err) {
+    clearToken();
+    showAuth();
+  }
+})();
+</script>
+</body>
+</html>
